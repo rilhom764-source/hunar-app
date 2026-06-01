@@ -509,7 +509,7 @@ class PushNotificationService {
           userId: workerId, // ← строго userId мастера
           title: title,
           message: body,
-          type: 'new_task',
+          type: 'newTask',
           relatedId: taskId,
         );
         notifiedCount++;

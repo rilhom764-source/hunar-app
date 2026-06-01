@@ -1,4 +1,5 @@
 enum NotificationType {
+  newTask,       // Новое задание (мастерам)
   newBid,
   bidAccepted,
   bidRejected,
@@ -48,6 +49,8 @@ class NotificationModel {
 
   String get iconEmoji {
     switch (type) {
+      case NotificationType.newTask:
+        return '📋';
       case NotificationType.newBid:
         return '🔨';
       case NotificationType.bidAccepted:

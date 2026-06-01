@@ -151,6 +151,8 @@ class _NotificationTile extends StatelessWidget {
 
   Color _getTypeColor(NotificationType type) {
     switch (type) {
+      case NotificationType.newTask:
+        return AppColors.primary;
       case NotificationType.newBid:
         return AppColors.info;
       case NotificationType.bidAccepted:
