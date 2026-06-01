@@ -716,49 +716,97 @@ class _BidCard extends StatelessWidget {
               ],
             ),
 
-            // ── Кнопка "Читать отзывы" — ВСЕГДА видна заказчику ──
+            // ── Кнопки "Посмотреть профиль" и "Читать отзывы" — ВСЕГДА видны заказчику ──
             if (isOwner) ...[
-              const SizedBox(height: 8),
-              GestureDetector(
-                onTap: () {
-                  // Показать отзывы о мастере — имя скрыто если заявка не принята
-                  if (workerUser != null) {
-                    Navigator.push(context, MaterialPageRoute(
-                      builder: (_) => ReviewsListScreen(
-                        user: workerUser,
-                        isClient: false,
-                        showName: showIdentity,
-                      ),
-                    ));
-                  }
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppColors.warning.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.warning.withValues(alpha: 0.25)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.star_rounded, size: 14, color: AppColors.warning),
-                      const SizedBox(width: 5),
-                      Text(
-                        bid.workerReviewsCount > 0
-                            ? 'Читать ${bid.workerReviewsCount} ${_reviewWord(bid.workerReviewsCount)}'
-                            : 'Отзывов пока нет',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.warning,
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  // ── Кнопка "Посмотреть профиль" ──
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: workerUser != null ? () {
+                        Navigator.push(context, MaterialPageRoute(
+                          builder: (_) => PublicProfileScreen(user: workerUser),
+                        ));
+                      } : null,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.person_outline_rounded, size: 14, color: AppColors.primary),
+                            const SizedBox(width: 5),
+                            Flexible(
+                              child: Text(
+                                showIdentity ? 'Профиль мастера' : 'Посмотреть профиль',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.primary,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 3),
+                            const Icon(Icons.chevron_right_rounded, size: 15, color: AppColors.primary),
+                          ],
                         ),
                       ),
-                      const SizedBox(width: 4),
-                      const Icon(Icons.chevron_right_rounded, size: 15, color: AppColors.warning),
-                    ],
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  // ── Кнопка "Читать отзывы" ──
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        if (workerUser != null) {
+                          Navigator.push(context, MaterialPageRoute(
+                            builder: (_) => ReviewsListScreen(
+                              user: workerUser,
+                              isClient: false,
+                              showName: showIdentity,
+                            ),
+                          ));
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: AppColors.warning.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.warning.withValues(alpha: 0.25)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.star_rounded, size: 14, color: AppColors.warning),
+                            const SizedBox(width: 5),
+                            Flexible(
+                              child: Text(
+                                bid.workerReviewsCount > 0
+                                    ? '${bid.workerReviewsCount} ${_reviewWord(bid.workerReviewsCount)}'
+                                    : 'Нет отзывов',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.warning,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 3),
+                            const Icon(Icons.chevron_right_rounded, size: 15, color: AppColors.warning),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
 
