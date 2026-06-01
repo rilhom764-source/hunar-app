@@ -260,7 +260,14 @@ class AppStateProvider extends ChangeNotifier {
       return false;
     } catch (e) {
       _isAuthLoading = false;
-      _authError = e.toString();
+      final errStr = e.toString();
+      if (errStr.contains('network') || errStr.contains('SocketException')) {
+        _authError = 'Нет интернет-соединения. Проверьте сеть';
+      } else if (errStr.contains('channel-error') || errStr.contains('Unable to establish')) {
+        _authError = 'Ошибка соединения. Проверьте интернет и попробуйте снова';
+      } else {
+        _authError = 'Ошибка регистрации. Проверьте интернет и повторите';
+      }
       notifyListeners();
       onError(_authError!);
       return false;
@@ -325,7 +332,14 @@ class AppStateProvider extends ChangeNotifier {
       return false;
     } catch (e) {
       _isAuthLoading = false;
-      _authError = e.toString();
+      final errStr = e.toString();
+      if (errStr.contains('network') || errStr.contains('SocketException')) {
+        _authError = 'Нет интернет-соединения. Проверьте сеть';
+      } else if (errStr.contains('channel-error') || errStr.contains('Unable to establish')) {
+        _authError = 'Ошибка соединения. Проверьте интернет и попробуйте снова';
+      } else {
+        _authError = 'Ошибка входа. Проверьте интернет и повторите';
+      }
       notifyListeners();
       onError(_authError!);
       return false;
@@ -351,8 +365,16 @@ class AppStateProvider extends ChangeNotifier {
         return 'Слишком много попыток. Попробуйте позже';
       case 'invalid-credential':
         return 'Неверный email или пароль';
+      case 'network-request-failed':
+        return 'Нет интернет-соединения. Проверьте сеть';
+      case 'operation-not-allowed':
+        return 'Вход через email не включён. Обратитесь к поддержке';
+      case 'unknown':
+        return 'Ошибка соединения с сервером. Проверьте интернет и попробуйте снова';
+      case 'channel-error':
+        return 'Ошибка соединения. Проверьте интернет';
       default:
-        return 'Ошибка авторизации: $code';
+        return 'Ошибка: $code. Проверьте интернет и попробуйте снова';
     }
   }
 

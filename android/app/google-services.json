@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "1770827327",
-    "project_id": "unknown-project",
-    "storage_bucket": "unknown-project.appspot.com"
+    "project_number": "255881779850",
+    "project_id": "usto1-17806",
+    "storage_bucket": "usto1-17806.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:1770827327:android:u6m220u1na3h",
+        "mobilesdk_app_id": "1:255881779850:android:0ab61d16dff904df182b73",
         "android_client_info": {
           "package_name": "com.ustoconnect.connect"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "placeholder-api-key-u6m220u1na3h"
+          "current_key": "AIzaSyBm4xo5u8TSPEWXWgoU6zFG359zKRUaWPU"
         }
       ],
       "services": {
