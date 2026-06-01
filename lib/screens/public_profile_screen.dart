@@ -416,7 +416,7 @@ class PublicProfileScreen extends StatelessWidget {
                           onPressed: () => Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => ReviewsListScreen(worker: user),
+                              builder: (_) => ReviewsListScreen(user: user, isClient: false, showName: true),
                             ),
                           ),
                           style: TextButton.styleFrom(

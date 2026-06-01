@@ -15,6 +15,7 @@ import 'review_screen.dart';
 import 'messages_screen.dart';
 import 'public_profile_screen.dart';
 import 'client_profile_screen.dart';
+import 'reviews_list_screen.dart';
 
 class TaskDetailScreen extends StatelessWidget {
   final TaskModel task;
@@ -605,133 +606,218 @@ class _BidCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Owner always sees worker identity; other workers see it only after acceptance
+    final state = context.read<AppStateProvider>();
+    final currentUserId = state.currentUser.id;
+
+    // Заказчик видит имя/профиль мастера только после принятия его заявки
     final showIdentity = isOwner || bid.status == BidStatus.accepted;
     final displayName = showIdentity ? bid.workerName : 'Мастер';
-    // Hide bid price from other workers — only task owner and bid author see it
-    final currentUserId = context.read<AppStateProvider>().currentUser.id;
+    // Цену видит только заказчик и сам автор заявки
     final showPrice = isOwner || bid.workerId == currentUserId;
-    
+
+    // Данные о мастере для отзывов (видны ВСЕГДА заказчику)
+    final workerUser = isOwner ? state.getUserById(bid.workerId) : null;
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: AppColors.divider),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ── Строка: аватар + имя/рейтинг + цена ──
             Row(
               children: [
-                CircleAvatar(
-                  radius: 20,
-                  backgroundColor: AppColors.primary.withValues(alpha: 0.15),
-                  child: showIdentity 
-                    ? Text(
-                        bid.workerName.split(' ').map((n) => n.isNotEmpty ? n[0] : '').take(2).join(), 
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primary),
-                      )
-                    : const Icon(Icons.engineering, color: AppColors.primary, size: 20),
+                // Аватар
+                GestureDetector(
+                  onTap: showIdentity && workerUser != null ? () {
+                    Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => PublicProfileScreen(user: workerUser),
+                    ));
+                  } : null,
+                  child: CircleAvatar(
+                    radius: 22,
+                    backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+                    child: showIdentity
+                        ? Text(
+                            bid.workerName.split(' ').map((n) => n.isNotEmpty ? n[0] : '').take(2).join(),
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primary),
+                          )
+                        : const Icon(Icons.engineering_rounded, color: AppColors.primary, size: 20),
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          GestureDetector(
-                            onTap: showIdentity ? () {
-                              final state = context.read<AppStateProvider>();
-                              final workerUser = state.getUserById(bid.workerId);
-                              if (workerUser != null) {
-                                Navigator.push(context, MaterialPageRoute(
-                                  builder: (_) => PublicProfileScreen(user: workerUser),
-                                ));
-                              }
-                            } : null,
-                            child: Text(displayName, style: TextStyle(
-                              fontWeight: FontWeight.w600, 
-                              color: showIdentity ? AppColors.primary : AppColors.deepSlate,
-                              decoration: showIdentity ? TextDecoration.underline : null,
-                              decorationColor: AppColors.primary,
-                            )),
+                      // Имя (или "Мастер")
+                      GestureDetector(
+                        onTap: showIdentity && workerUser != null ? () {
+                          Navigator.push(context, MaterialPageRoute(
+                            builder: (_) => PublicProfileScreen(user: workerUser),
+                          ));
+                        } : null,
+                        child: Text(
+                          displayName,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: showIdentity ? AppColors.primary : AppColors.deepSlate,
+                            decoration: showIdentity ? TextDecoration.underline : null,
+                            decorationColor: AppColors.primary,
                           ),
-                          if (!showIdentity) ...[
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: AppColors.info.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                '${bid.workerReviewsCount} ${l10n.tr('bid_reviews')}',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.info,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
+                        ),
                       ),
+                      const SizedBox(height: 3),
+                      // Рейтинг + кол-во отзывов — ВСЕГДА видно заказчику
                       Row(
                         children: [
-                          const Icon(Icons.star_rounded, size: 14, color: AppColors.warning),
-                          const SizedBox(width: 2),
-                          Text(bid.workerRating.toStringAsFixed(1), style: const TextStyle(fontSize: 12, color: AppColors.slateGray)),
+                          const Icon(Icons.star_rounded, size: 13, color: AppColors.warning),
+                          const SizedBox(width: 3),
+                          Text(
+                            bid.workerRating.toStringAsFixed(1),
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.deepSlate),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '· ${bid.workerReviewsCount} ${_reviewWord(bid.workerReviewsCount)}',
+                            style: const TextStyle(fontSize: 12, color: AppColors.slateGray),
+                          ),
                         ],
                       ),
                     ],
                   ),
                 ),
+                // Цена
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                   child: showPrice
-                      ? Text('${bid.amount.toInt()} TJS', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.primary))
+                      ? Text('${bid.amount.toInt()} TJS',
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.primary))
                       : const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.lock_outline, size: 14, color: AppColors.slateGray),
+                            Icon(Icons.lock_outline, size: 13, color: AppColors.slateGray),
                             SizedBox(width: 4),
-                            Text('***', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.slateGray)),
+                            Text('···', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.slateGray)),
                           ],
                         ),
                 ),
               ],
             ),
+
+            // ── Кнопка "Читать отзывы" — ВСЕГДА видна заказчику ──
+            if (isOwner) ...[
+              const SizedBox(height: 8),
+              GestureDetector(
+                onTap: () {
+                  // Показать отзывы о мастере — имя скрыто если заявка не принята
+                  if (workerUser != null) {
+                    Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => ReviewsListScreen(
+                        user: workerUser,
+                        isClient: false,
+                        showName: showIdentity,
+                      ),
+                    ));
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.warning.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.warning.withValues(alpha: 0.25)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.star_rounded, size: 14, color: AppColors.warning),
+                      const SizedBox(width: 5),
+                      Text(
+                        bid.workerReviewsCount > 0
+                            ? 'Читать ${bid.workerReviewsCount} ${_reviewWord(bid.workerReviewsCount)}'
+                            : 'Отзывов пока нет',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.warning,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.chevron_right_rounded, size: 15, color: AppColors.warning),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+
             const SizedBox(height: 10),
+            // ── Сообщение мастера ──
             Text(bid.message, style: const TextStyle(fontSize: 14, color: AppColors.slateGray, height: 1.5)),
             const SizedBox(height: 8),
+
+            // ── Нижняя строка: время + кнопки действий ──
             Row(
               children: [
-                Icon(Icons.schedule, size: 16, color: AppColors.lightSlate),
+                Icon(Icons.schedule, size: 15, color: AppColors.lightSlate),
                 const SizedBox(width: 4),
                 Text(bid.estimatedTime, style: const TextStyle(fontSize: 13, color: AppColors.slateGray)),
                 const Spacer(),
                 if (bid.status == BidStatus.accepted) ...[
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(color: AppColors.success.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
-                    child: Text(l10n.tr('bid_accepted'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.success)),
+                    decoration: BoxDecoration(
+                      color: AppColors.success.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(l10n.tr('bid_accepted'),
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.success)),
                   ),
                   const SizedBox(width: 8),
-                  IconButton(onPressed: onChat, icon: const Icon(Icons.chat_outlined, size: 20, color: AppColors.primary), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+                  IconButton(
+                    onPressed: onChat,
+                    icon: const Icon(Icons.chat_outlined, size: 20, color: AppColors.primary),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
                 ] else if (bid.status == BidStatus.rejected)
                   Text(l10n.tr('bid_reject'), style: const TextStyle(fontSize: 12, color: AppColors.error))
                 else if (isOwner && isTaskOpen) ...[
-                  IconButton(onPressed: onChat, icon: const Icon(Icons.chat_outlined, size: 20, color: AppColors.info), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+                  IconButton(
+                    onPressed: onChat,
+                    icon: const Icon(Icons.chat_outlined, size: 20, color: AppColors.info),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
                   const SizedBox(width: 8),
                   OutlinedButton(
                     onPressed: onReject,
-                    style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), minimumSize: Size.zero, side: const BorderSide(color: AppColors.error), foregroundColor: AppColors.error),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      minimumSize: Size.zero,
+                      side: const BorderSide(color: AppColors.error),
+                      foregroundColor: AppColors.error,
+                    ),
                     child: Text(l10n.tr('bid_reject'), style: const TextStyle(fontSize: 12)),
                   ),
                   const SizedBox(width: 8),
                   ElevatedButton(
                     onPressed: onAccept,
-                    style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), minimumSize: Size.zero),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      minimumSize: Size.zero,
+                    ),
                     child: Text(l10n.tr('bid_accept'), style: const TextStyle(fontSize: 12)),
                   ),
                 ] else
@@ -742,6 +828,17 @@ class _BidCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _reviewWord(int count) {
+    if (count % 100 >= 11 && count % 100 <= 14) return 'отзывов';
+    switch (count % 10) {
+      case 1: return 'отзыв';
+      case 2:
+      case 3:
+      case 4: return 'отзыва';
+      default: return 'отзывов';
+    }
   }
 }
 
@@ -1409,13 +1506,14 @@ class _ClientRatingCard extends StatelessWidget {
     }
 
     void openReviews() {
+      if (clientUser == null) return;
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => _ClientReviewsScreen(
-            reviews: reviews,
-            avgRating: avgRating,
-            clientUser: clientUser,
+          builder: (_) => ReviewsListScreen(
+            user: clientUser,
+            isClient: true,
+            showName: false, // анонимно — имя скрыто до принятия заявки
           ),
         ),
       );
@@ -1666,305 +1764,3 @@ class _ClientRatingCard extends StatelessWidget {
   }
 }
 
-// ══════════════════════════════════════════════════════════════
-// CLIENT REVIEWS SCREEN — экран только с отзывами заказчика
-// Доступен всем мастерам (без имени, без контактов)
-// ══════════════════════════════════════════════════════════════
-class _ClientReviewsScreen extends StatelessWidget {
-  final List<dynamic> reviews;
-  final double avgRating;
-  final dynamic clientUser;
-
-  const _ClientReviewsScreen({
-    required this.reviews,
-    required this.avgRating,
-    required this.clientUser,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final starCount = avgRating.round().clamp(0, 5);
-
-    String reviewWord(int n) {
-      if (n % 100 >= 11 && n % 100 <= 19) return 'отзывов';
-      switch (n % 10) {
-        case 1: return 'отзыв';
-        case 2:
-        case 3:
-        case 4: return 'отзыва';
-        default: return 'отзывов';
-      }
-    }
-
-    final sortedReviews = List.from(reviews)
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
-    return Scaffold(
-      backgroundColor: AppColors.scaffoldBg,
-      appBar: AppBar(
-        title: const Text('Отзывы о заказчике'),
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: AppColors.headerGradient,
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-        ),
-        iconTheme: const IconThemeData(color: Colors.white),
-        titleTextStyle: const TextStyle(
-          color: Colors.white,
-          fontSize: 17,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          // Сводная карточка
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                // Анонимный аватар
-                Container(
-                  width: 68,
-                  height: 68,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: const Color(0xFF1976D2).withValues(alpha: 0.12),
-                    border: Border.all(
-                      color: const Color(0xFF1976D2).withValues(alpha: 0.3),
-                      width: 2.5,
-                    ),
-                  ),
-                  child: ClipOval(
-                    child: clientUser?.avatarUrl != null && (clientUser?.avatarUrl as String).isNotEmpty
-                        ? Image.network(
-                            clientUser!.avatarUrl as String,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => const Icon(
-                              Icons.person_rounded,
-                              size: 36,
-                              color: Color(0xFF1976D2),
-                            ),
-                          )
-                        : const Icon(
-                            Icons.person_rounded,
-                            size: 36,
-                            color: Color(0xFF1976D2),
-                          ),
-                  ),
-                ),
-                const SizedBox(width: 18),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Заказчик',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.slateGray,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.baseline,
-                        textBaseline: TextBaseline.alphabetic,
-                        children: [
-                          Text(
-                            avgRating > 0 ? avgRating.toStringAsFixed(1) : '—',
-                            style: TextStyle(
-                              fontSize: 36,
-                              fontWeight: FontWeight.w900,
-                              color: avgRating > 0 ? const Color(0xFFF59E0B) : AppColors.lightSlate,
-                              height: 1.0,
-                            ),
-                          ),
-                          if (avgRating > 0) ...[
-                            const SizedBox(width: 6),
-                            const Icon(Icons.star_rounded, size: 24, color: Color(0xFFF59E0B)),
-                          ],
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          ...List.generate(5, (i) => Icon(
-                            i < starCount ? Icons.star_rounded : Icons.star_outline_rounded,
-                            size: 18,
-                            color: const Color(0xFFF59E0B),
-                          )),
-                          const SizedBox(width: 8),
-                          Text(
-                            '${reviews.length} ${reviewWord(reviews.length)}',
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: AppColors.slateGray,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // Список отзывов
-          if (sortedReviews.isEmpty)
-            Center(
-              child: Column(
-                children: [
-                  const SizedBox(height: 40),
-                  Icon(Icons.rate_review_outlined, size: 56, color: AppColors.lightSlate.withValues(alpha: 0.5)),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Отзывов пока нет',
-                    style: TextStyle(fontSize: 16, color: AppColors.slateGray, fontWeight: FontWeight.w500),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Мастера ещё не оставили отзывов об этом заказчике',
-                    style: TextStyle(fontSize: 13, color: AppColors.lightSlate, height: 1.5),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            )
-          else
-            ...sortedReviews.map((review) => _ReviewTile(review: review)),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Карточка отзыва ──
-class _ReviewTile extends StatelessWidget {
-  final dynamic review;
-  const _ReviewTile({required this.review});
-
-  @override
-  Widget build(BuildContext context) {
-    final int starCount = (review.rating as double).round().clamp(0, 5);
-    final String date = _fmt(review.createdAt as DateTime);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.divider),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              // Аватар автора
-              CircleAvatar(
-                radius: 20,
-                backgroundColor: AppColors.primary.withValues(alpha: 0.12),
-                backgroundImage: (review.reviewerAvatar as String?) != null &&
-                    (review.reviewerAvatar as String).isNotEmpty
-                    ? NetworkImage(review.reviewerAvatar as String)
-                    : null,
-                child: (review.reviewerAvatar as String?) == null ||
-                    (review.reviewerAvatar as String).isEmpty
-                    ? Text(
-                        (review.reviewerName as String).isNotEmpty
-                            ? (review.reviewerName as String)[0].toUpperCase()
-                            : '?',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.primary,
-                        ),
-                      )
-                    : null,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      review.reviewerName as String,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.deepSlate,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Row(
-                      children: [
-                        ...List.generate(5, (i) => Icon(
-                          i < starCount ? Icons.star_rounded : Icons.star_outline_rounded,
-                          size: 14,
-                          color: const Color(0xFFF59E0B),
-                        )),
-                        const SizedBox(width: 6),
-                        Text(
-                          (review.rating as double).toStringAsFixed(1),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFFF59E0B),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              Text(
-                date,
-                style: const TextStyle(fontSize: 11, color: AppColors.lightSlate),
-              ),
-            ],
-          ),
-          if ((review.comment as String).isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Text(
-              review.comment as String,
-              style: const TextStyle(
-                fontSize: 13,
-                color: AppColors.slateGray,
-                height: 1.5,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  String _fmt(DateTime dt) => '${dt.day}.${dt.month.toString().padLeft(2,'0')}.${dt.year}';
-}

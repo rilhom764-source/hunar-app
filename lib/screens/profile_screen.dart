@@ -1785,7 +1785,7 @@ class _MyReviewsSection extends StatelessWidget {
                     onPressed: () => Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => ReviewsListScreen(worker: worker),
+                        builder: (_) => ReviewsListScreen(user: worker, isClient: false, showName: true),
                       ),
                     ),
                     style: TextButton.styleFrom(
@@ -1831,7 +1831,7 @@ class _MyReviewsSection extends StatelessWidget {
                   onPressed: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => ReviewsListScreen(worker: worker),
+                      builder: (_) => ReviewsListScreen(user: worker, isClient: false, showName: true),
                     ),
                   ),
                   icon: const Icon(Icons.arrow_forward_rounded, size: 18),
