@@ -871,79 +871,101 @@ class _CompactRoleSwitcherState extends State<_CompactRoleSwitcher> with SingleT
 
   @override
   Widget build(BuildContext context) {
-    final h = widget.isSmall ? 52.0 : 58.0;
-    final screenW = MediaQuery.of(context).size.width;
+    final h = widget.isSmall ? 52.0 : 56.0;
     return AnimatedBuilder(
       animation: _ctrl,
       builder: (context, _) {
-        return GestureDetector(
-          onTap: _handleTap,
-          child: Transform.scale(
-            scale: _scale.value,
-            child: Container(
-              height: h,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                color: Colors.white.withValues(alpha: 0.1),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1),
-              ),
-              child: Stack(
-                children: [
-                  // Sliding pill indicator
-                  AnimatedPositioned(
-                    duration: const Duration(milliseconds: 350),
-                    curve: Curves.easeOutCubic,
-                    left: widget.isClient ? 4 : screenW * 0.43,
-                    right: widget.isClient ? screenW * 0.43 : 4,
-                    top: 4,
-                    bottom: 4,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(13),
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: widget.isClient
-                              ? [const Color(0xFF6366F1), const Color(0xFF8B5CF6)]
-                              : [const Color(0xFF10B981), const Color(0xFF059669)],
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: (widget.isClient ? const Color(0xFF6366F1) : const Color(0xFF10B981)).withValues(alpha: 0.5),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
+        return Transform.scale(
+          scale: _scale.value,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              // Точный расчёт позиции индикатора на основе реальной ширины контейнера
+              final totalW = constraints.maxWidth;
+              final pillW = totalW / 2 - 4; // половина минус отступ
+              final pillLeft = widget.isClient ? 4.0 : totalW / 2;
+              final pillRight = widget.isClient ? totalW / 2 : 4.0;
+
+              return Container(
+                height: h,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  color: Colors.white.withValues(alpha: 0.12),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.25), width: 1),
+                ),
+                child: Stack(
+                  children: [
+                    // ── Скользящий индикатор (pill) ──
+                    AnimatedPositioned(
+                      duration: const Duration(milliseconds: 320),
+                      curve: Curves.easeOutCubic,
+                      left: pillLeft,
+                      right: pillRight,
+                      top: 4,
+                      bottom: 4,
+                      child: Container(
+                        width: pillW,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(13),
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: widget.isClient
+                                ? [const Color(0xFF6366F1), const Color(0xFF8B5CF6)]
+                                : [const Color(0xFF10B981), const Color(0xFF059669)],
                           ),
-                        ],
+                          boxShadow: [
+                            BoxShadow(
+                              color: (widget.isClient
+                                      ? const Color(0xFF6366F1)
+                                      : const Color(0xFF10B981))
+                                  .withValues(alpha: 0.45),
+                              blurRadius: 10,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                  // Options row
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _PremiumRoleOption(
-                          icon: Icons.person_rounded,
-                          activeIcon: Icons.person,
-                          label: widget.l10n.tr('profile_switch_client'),
-                          isSelected: widget.isClient,
-                          isSmall: widget.isSmall,
+
+                    // ── Кнопки (поверх индикатора) ──
+                    Row(
+                      children: [
+                        // Кнопка "Заказчик"
+                        Expanded(
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: widget.isClient ? null : _handleTap,
+                            child: _PremiumRoleOption(
+                              icon: Icons.person_rounded,
+                              activeIcon: Icons.person,
+                              label: widget.l10n.tr('profile_switch_client'),
+                              isSelected: widget.isClient,
+                              isSmall: widget.isSmall,
+                            ),
+                          ),
                         ),
-                      ),
-                      Expanded(
-                        child: _PremiumRoleOption(
-                          icon: Icons.handyman_rounded,
-                          activeIcon: Icons.handyman,
-                          label: widget.l10n.tr('profile_switch_role'),
-                          isSelected: !widget.isClient,
-                          showBadge: widget.isMasterVerified,
-                          isSmall: widget.isSmall,
+                        // Кнопка "Мастер"
+                        Expanded(
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: !widget.isClient ? null : _handleTap,
+                            child: _PremiumRoleOption(
+                              icon: Icons.handyman_rounded,
+                              activeIcon: Icons.handyman,
+                              label: widget.l10n.tr('profile_switch_role'),
+                              isSelected: !widget.isClient,
+                              showBadge: widget.isMasterVerified,
+                              isSmall: widget.isSmall,
+                            ),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
         );
       },
@@ -970,60 +992,73 @@ class _PremiumRoleOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
+    return SizedBox(
+      height: double.infinity,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          // ── Иконка с badge ──
           Stack(
             clipBehavior: Clip.none,
             children: [
               AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                padding: EdgeInsets.all(isSmall ? 6 : 8),
+                duration: const Duration(milliseconds: 280),
+                padding: EdgeInsets.all(isSmall ? 6 : 7),
                 decoration: BoxDecoration(
-                  color: isSelected ? Colors.white.withValues(alpha: 0.25) : Colors.transparent,
-                  borderRadius: BorderRadius.circular(10),
+                  color: isSelected
+                      ? Colors.white.withValues(alpha: 0.22)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(9),
                 ),
                 child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 200),
+                  duration: const Duration(milliseconds: 180),
+                  transitionBuilder: (child, anim) =>
+                      ScaleTransition(scale: anim, child: child),
                   child: Icon(
                     isSelected ? activeIcon : icon,
                     key: ValueKey(isSelected),
-                    color: Colors.white.withValues(alpha: isSelected ? 1.0 : 0.6),
-                    size: isSmall ? 18 : 20,
+                    color: Colors.white
+                        .withValues(alpha: isSelected ? 1.0 : 0.55),
+                    size: isSmall ? 17 : 19,
                   ),
                 ),
               ),
+              // Бейдж верификации мастера
               if (showBadge)
                 Positioned(
-                  right: -1,
-                  top: -1,
+                  right: -2,
+                  top: -2,
                   child: Container(
-                    width: 14, height: 14,
+                    width: 13,
+                    height: 13,
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(colors: [Color(0xFFFBBF24), Color(0xFFF59E0B)]),
+                      gradient: const LinearGradient(
+                          colors: [Color(0xFFFBBF24), Color(0xFFF59E0B)]),
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.white, width: 1.5),
                       boxShadow: [
-                        BoxShadow(color: const Color(0xFFFBBF24).withValues(alpha: 0.4), blurRadius: 4),
+                        BoxShadow(
+                          color: const Color(0xFFFBBF24).withValues(alpha: 0.4),
+                          blurRadius: 4,
+                        ),
                       ],
                     ),
-                    child: const Icon(Icons.check, color: Colors.white, size: 8),
+                    child: const Icon(Icons.check, color: Colors.white, size: 7),
                   ),
                 ),
             ],
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 5),
+          // ── Текст подписи ──
           Flexible(
             child: AnimatedDefaultTextStyle(
-              duration: const Duration(milliseconds: 200),
+              duration: const Duration(milliseconds: 220),
               style: TextStyle(
                 color: Colors.white.withValues(alpha: isSelected ? 1.0 : 0.55),
-                fontSize: isSmall ? 12 : 13,
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
-                letterSpacing: isSelected ? 0.3 : 0,
+                fontSize: isSmall ? 13 : 14,
+                fontWeight:
+                    isSelected ? FontWeight.w700 : FontWeight.w500,
+                letterSpacing: isSelected ? 0.2 : 0,
               ),
               child: Text(
                 label,
