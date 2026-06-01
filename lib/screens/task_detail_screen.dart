@@ -14,6 +14,7 @@ import 'payment_screen.dart';
 import 'review_screen.dart';
 import 'messages_screen.dart';
 import 'public_profile_screen.dart';
+import 'client_profile_screen.dart';
 
 class TaskDetailScreen extends StatelessWidget {
   final TaskModel task;
@@ -211,8 +212,9 @@ class TaskDetailScreen extends StatelessWidget {
               child: _InfoCard(icon: Icons.location_on_outlined, label: l10n.tr('task_detail_location'), value: currentTask.location, color: AppColors.error, fullWidth: true),
             ),
 
-            // Client profile card (visible to workers)
-            if (!isOwner) ...[
+            // Client profile card — ТОЛЬКО если заявка мастера принята (assignedWorkerId совпадает)
+            // или задача уже в работе/завершена с этим мастером
+            if (!isOwner && _isWorkerAccepted(currentTask, state, bids)) ...[
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                 child: _ClientProfileCard(
@@ -220,6 +222,14 @@ class TaskDetailScreen extends StatelessWidget {
                   state: state,
                   l10n: l10n,
                 ),
+              ),
+            ],
+
+            // Заглушка для мастеров у которых заявка ещё не принята
+            if (!isOwner && !_isWorkerAccepted(currentTask, state, bids) && state.hasWorkerBidOnTask(currentTask.id)) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: _PendingBidClientCard(l10n: l10n),
               ),
             ],
 
@@ -544,6 +554,15 @@ class TaskDetailScreen extends StatelessWidget {
       case TaskStatus.completed: return AppColors.statusCompleted;
       case TaskStatus.cancelled: return AppColors.statusCancelled;
     }
+  }
+
+  /// Проверяет: принята ли заявка текущего мастера на эту задачу?
+  bool _isWorkerAccepted(TaskModel task, AppStateProvider state, List<BidModel> bids) {
+    final myId = state.currentUser.id;
+    // Вариант 1: задача уже назначена этому мастеру
+    if (task.assignedWorkerId == myId) return true;
+    // Вариант 2: есть принятая заявка от этого мастера
+    return bids.any((b) => b.workerId == myId && b.status == BidStatus.accepted);
   }
 }
 
@@ -932,28 +951,16 @@ class _ClientProfileCard extends StatelessWidget {
         ? reviews.map((r) => r.rating).reduce((a, b) => a + b) / reviews.length
         : 0.0;
 
-    void openProfile() {
+    void openClientProfile() {
       if (clientUser != null) {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => PublicProfileScreen(user: clientUser),
+            builder: (_) => ClientProfileScreen(
+              client: clientUser,
+              relatedTask: task,
+            ),
           ),
-        );
-      }
-    }
-
-    Future<void> openChat() async {
-      final chatId = await state.getOrCreateFirestoreChat(
-        participantId: clientId,
-        participantName: clientName,
-        taskId: task.id,
-        taskTitle: task.title,
-      );
-      if (chatId.isNotEmpty && context.mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => FirestoreChatDetailScreen(chatId: chatId)),
         );
       }
     }
@@ -961,27 +968,67 @@ class _ClientProfileCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.divider),
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFF1565C0).withValues(alpha: 0.06),
+            const Color(0xFF42A5F5).withValues(alpha: 0.04),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF1976D2).withValues(alpha: 0.25)),
       ),
       child: Column(
         children: [
-          // Заголовок: аватар + имя + рейтинг (тап = профиль)
+          // Заголовок с бейджем "Доступ открыт"
+          Row(
+            children: [
+              const Icon(Icons.lock_open_rounded, size: 15, color: Color(0xFF1976D2)),
+              const SizedBox(width: 6),
+              const Text(
+                'Профиль заказчика',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1976D2),
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.success.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.check_circle_rounded, size: 12, color: AppColors.success),
+                    SizedBox(width: 4),
+                    Text(
+                      'Заявка принята',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.success),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Аватар + имя + рейтинг
           InkWell(
-            onTap: openProfile,
+            onTap: openClientProfile,
             borderRadius: BorderRadius.circular(10),
             child: Row(
               children: [
                 CircleAvatar(
-                  radius: 22,
-                  backgroundColor: AppColors.info.withValues(alpha: 0.12),
+                  radius: 24,
+                  backgroundColor: const Color(0xFF1976D2).withValues(alpha: 0.15),
                   child: Text(
                     clientName.isNotEmpty ? clientName[0].toUpperCase() : '?',
                     style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.info,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF1565C0),
                     ),
                   ),
                 ),
@@ -994,55 +1041,49 @@ class _ClientProfileCard extends StatelessWidget {
                         clientName,
                         style: const TextStyle(
                           fontSize: 15,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w700,
                           color: AppColors.deepSlate,
                         ),
                       ),
                       const SizedBox(height: 3),
                       Row(
                         children: [
-                          const Icon(Icons.person_outline, size: 14, color: AppColors.slateGray),
+                          const Icon(Icons.person_rounded, size: 13, color: AppColors.slateGray),
                           const SizedBox(width: 4),
-                          Text(
-                            l10n.tr('public_profile_client'),
-                            style: const TextStyle(fontSize: 12, color: AppColors.slateGray),
-                          ),
+                          const Text('Заказчик', style: TextStyle(fontSize: 12, color: AppColors.slateGray)),
                           if (reviews.isNotEmpty) ...[
                             const SizedBox(width: 10),
-                            Icon(Icons.star_rounded, size: 14, color: AppColors.warning),
+                            const Icon(Icons.star_rounded, size: 13, color: AppColors.warning),
                             const SizedBox(width: 3),
                             Text(
-                              '${avgRating.toStringAsFixed(1)} (${reviews.length})',
+                              '${avgRating.toStringAsFixed(1)} (${reviews.length} отз.)',
                               style: const TextStyle(fontSize: 12, color: AppColors.slateGray),
                             ),
                           ] else ...[
-                            const SizedBox(width: 10),
-                            Text(
-                              l10n.tr('reviews_no_reviews'),
-                              style: const TextStyle(fontSize: 12, color: AppColors.lightSlate),
-                            ),
+                            const SizedBox(width: 8),
+                            const Text('Нет отзывов', style: TextStyle(fontSize: 12, color: AppColors.lightSlate)),
                           ],
                         ],
                       ),
                     ],
                   ),
                 ),
-                const Icon(Icons.chevron_right_rounded, color: AppColors.lightSlate, size: 22),
+                const Icon(Icons.chevron_right_rounded, color: Color(0xFF1976D2), size: 22),
               ],
             ),
           ),
           const SizedBox(height: 12),
-          // Кнопки: Профиль (только смотреть) + Написать
+          // Кнопки
           Row(
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: openProfile,
-                  icon: const Icon(Icons.visibility_outlined, size: 18),
-                  label: Text(l10n.tr('client_view_profile')),
+                  onPressed: openClientProfile,
+                  icon: const Icon(Icons.person_search_rounded, size: 18),
+                  label: const Text('Профиль'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.info,
-                    side: const BorderSide(color: AppColors.info),
+                    foregroundColor: const Color(0xFF1976D2),
+                    side: const BorderSide(color: Color(0xFF1976D2)),
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                   ),
@@ -1051,11 +1092,11 @@ class _ClientProfileCard extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: openChat,
-                  icon: const Icon(Icons.chat_outlined, size: 18),
-                  label: Text(l10n.tr('client_write')),
+                  onPressed: openClientProfile,
+                  icon: const Icon(Icons.chat_rounded, size: 18),
+                  label: const Text('Написать'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
+                    backgroundColor: const Color(0xFF1976D2),
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                   ),
@@ -1339,6 +1380,59 @@ class _ProgressLine extends StatelessWidget {
       decoration: BoxDecoration(
         color: isActive ? AppColors.info : AppColors.background,
         borderRadius: BorderRadius.circular(2),
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// PENDING BID CARD — показывается мастеру пока заявка на рассмотрении
+// ══════════════════════════════════════════════════════
+class _PendingBidClientCard extends StatelessWidget {
+  final LocalizationProvider l10n;
+  const _PendingBidClientCard({required this.l10n});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.warning.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.lock_rounded, size: 22, color: AppColors.warning),
+          ),
+          const SizedBox(width: 14),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Профиль заказчика закрыт',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.deepSlate,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Станет доступен после того, как заказчик выберет вас',
+                  style: TextStyle(fontSize: 12, color: AppColors.slateGray, height: 1.4),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
