@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Internal app storage (for temp files) -->
+    <files-path name="internal_files" path="." />
+    
+    <!-- Internal cache directory (where image_picker stores temp photos) -->
+    <cache-path name="cache" path="." />
+    <cache-path name="image_picker_cache" path="image_picker" />
+    
+    <!-- External storage root -->
+    <external-path name="external" path="." />
+    
+    <!-- External app-specific files directory -->
+    <external-files-path name="external_files" path="." />
+    <external-files-path name="images" path="Pictures" />
+    
+    <!-- External cache directory -->
+    <external-cache-path name="external_cache" path="." />
+    
+    <!-- Standard camera directories -->
+    <external-path name="camera_images" path="Pictures" />
+    <external-path name="dcim" path="DCIM" />
+    <external-path name="dcim_camera" path="DCIM/Camera" />
+    <external-path name="downloads" path="Download" />
+    
+    <!-- App-specific Android data directory -->
+    <external-path name="app_data" path="Android/data/com.ustoconnect.connect/files/Pictures" />
+    
+    <!-- Root of external storage for scoped storage compatibility -->
+    <root-path name="root" path="." />
+</paths>

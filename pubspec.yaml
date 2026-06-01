@@ -1,0 +1,58 @@
+name: hunar
+description: "Hunar - Service marketplace for Tajikistan. Find skilled masters for any task."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.9.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  provider: 6.1.5+1
+  http: 1.5.0
+  shared_preferences: 2.5.3
+  hive: 2.2.3
+  hive_flutter: 1.1.0
+  uuid: ^4.5.1
+  intl: ^0.20.2
+  cached_network_image: ^3.4.1
+  flutter_staggered_animations: ^1.1.1
+
+  # Firebase
+  firebase_core: 3.6.0
+  cloud_firestore: 5.4.3
+  firebase_auth: 5.3.1
+  firebase_storage: 12.3.2
+  firebase_messaging: 15.1.3
+  firebase_analytics: 11.3.3
+  flutter_local_notifications: ^18.0.1
+
+  # Фото и медиа
+  image_picker: ^1.1.2  # Updated for Android 13+/14+ Photo Picker API support
+  # image_cropper: ^5.0.1  # Отключено - несовместимо с Web
+  permission_handler: ^11.3.1  # Updated for latest Android permission handling
+  file_picker: ^8.1.2  # Для выбора файлов
+  
+  # Карты
+  google_maps_flutter: ^2.5.3
+  geolocator: ^10.1.0
+  
+  # Аудио
+  record: ^6.0.0
+  audioplayers: ^5.2.1
+  path_provider: ^2.1.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/icon/
+    - assets/images/
+    - assets/icons/
+    - assets/l10n/

@@ -1,0 +1,373 @@
+// ============================================================================
+// Usto Connect - Service Marketplace for Tajikistan
+// Database Schema - PostgreSQL with Prisma ORM
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum UserRole {
+  CLIENT
+  WORKER
+  ADMIN
+}
+
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  DISPUTED
+}
+
+enum BidStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
+enum PaymentMethod {
+  ALIF_MOBI
+  DC_NEXT
+  CASH
+  BANK_TRANSFER
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum NotificationType {
+  NEW_BID
+  BID_ACCEPTED
+  BID_REJECTED
+  TASK_COMPLETED
+  PAYMENT_RECEIVED
+  NEW_REVIEW
+  SYSTEM
+}
+
+// ============================================================================
+// USER MODEL
+// ============================================================================
+
+model User {
+  id              String    @id @default(uuid())
+  phone           String    @unique
+  email           String?   @unique
+  passwordHash    String
+  fullName        String
+  avatarUrl       String?
+  bio             String?
+  role            UserRole  @default(CLIENT)
+  
+  // Geolocation
+  latitude        Float     @default(38.5598)  // Default: Dushanbe
+  longitude       Float     @default(68.7740)
+  city            String    @default("Dushanbe")
+  
+  // Profile stats (denormalized for performance)
+  rating          Float     @default(0)
+  tasksCompleted  Int       @default(0)
+  reviewsCount    Int       @default(0)
+  
+  // Skills (for workers)
+  skills          String[]  @default([])
+  
+  // Verification
+  isVerified      Boolean   @default(false)
+  isActive        Boolean   @default(true)
+  phoneVerified   Boolean   @default(false)
+  
+  // Timestamps
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  lastLoginAt     DateTime?
+  
+  // Localization preference
+  preferredLang   String    @default("ru") // en, ru, tj
+  
+  // Relations
+  tasksAsClient   Task[]    @relation("ClientTasks")
+  tasksAsWorker   Task[]    @relation("WorkerTasks")
+  bids            Bid[]
+  reviewsGiven    Review[]  @relation("ReviewAuthor")
+  reviewsReceived Review[]  @relation("ReviewTarget")
+  paymentsSent    Transaction[] @relation("Payer")
+  paymentsReceived Transaction[] @relation("Payee")
+  notifications   Notification[]
+  
+  // Device tokens for push notifications
+  deviceTokens    DeviceToken[]
+  
+  @@index([phone])
+  @@index([city])
+  @@index([role])
+  @@index([latitude, longitude])
+  @@map("users")
+}
+
+// ============================================================================
+// TASK MODEL (Core Entity)
+// ============================================================================
+
+model Task {
+  id              String      @id @default(uuid())
+  
+  // Task details
+  title           String
+  description     String
+  category        String      // TaskCategory enum value
+  budget          Float
+  
+  // Location
+  location        String      // Human-readable address
+  latitude        Float
+  longitude       Float
+  
+  // Timing
+  deadline        DateTime
+  
+  // Status management
+  status          TaskStatus  @default(OPEN)
+  
+  // Media
+  voiceMessageUrl String?     // URL to voice description
+  imageUrls       String[]    @default([])
+  
+  // Relations
+  clientId        String
+  client          User        @relation("ClientTasks", fields: [clientId], references: [id])
+  
+  assignedWorkerId String?
+  assignedWorker  User?       @relation("WorkerTasks", fields: [assignedWorkerId], references: [id])
+  
+  bids            Bid[]
+  reviews         Review[]
+  transactions    Transaction[]
+  
+  // Denormalized counts (for query performance)
+  bidsCount       Int         @default(0)
+  
+  // Timestamps
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  completedAt     DateTime?
+  
+  @@index([clientId])
+  @@index([assignedWorkerId])
+  @@index([status])
+  @@index([category])
+  @@index([latitude, longitude])
+  @@index([createdAt(sort: Desc)])
+  @@index([status, category])
+  @@map("tasks")
+}
+
+// ============================================================================
+// BID MODEL (Bidding System)
+// ============================================================================
+
+model Bid {
+  id              String      @id @default(uuid())
+  
+  // Bid details
+  amount          Float
+  message         String
+  estimatedTime   String      // Human-readable estimate
+  
+  // Status
+  status          BidStatus   @default(PENDING)
+  
+  // Relations
+  taskId          String
+  task            Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  
+  workerId        String
+  worker          User        @relation(fields: [workerId], references: [id])
+  
+  // Timestamps
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  // Prevent duplicate bids from same worker on same task
+  @@unique([taskId, workerId])
+  @@index([taskId])
+  @@index([workerId])
+  @@index([status])
+  @@map("bids")
+}
+
+// ============================================================================
+// REVIEW MODEL
+// ============================================================================
+
+model Review {
+  id              String    @id @default(uuid())
+  
+  // Review content
+  rating          Float     // 1.0 - 5.0
+  comment         String
+  
+  // Relations
+  taskId          String
+  task            Task      @relation(fields: [taskId], references: [id])
+  
+  reviewerId      String
+  reviewer        User      @relation("ReviewAuthor", fields: [reviewerId], references: [id])
+  
+  targetUserId    String
+  targetUser      User      @relation("ReviewTarget", fields: [targetUserId], references: [id])
+  
+  // Timestamps
+  createdAt       DateTime  @default(now())
+  
+  // One review per task per reviewer
+  @@unique([taskId, reviewerId])
+  @@index([targetUserId])
+  @@index([rating])
+  @@map("reviews")
+}
+
+// ============================================================================
+// TRANSACTION MODEL (Payments)
+// ============================================================================
+
+model Transaction {
+  id                    String          @id @default(uuid())
+  
+  // Payment details
+  amount                Float
+  method                PaymentMethod
+  status                PaymentStatus   @default(PENDING)
+  
+  // External gateway references
+  externalTransactionId String?         // Alif Mobi / DC Next transaction ID
+  gatewayResponse       Json?           // Raw gateway response
+  
+  // Relations
+  taskId                String
+  task                  Task            @relation(fields: [taskId], references: [id])
+  
+  payerId               String
+  payer                 User            @relation("Payer", fields: [payerId], references: [id])
+  
+  payeeId               String
+  payee                 User            @relation("Payee", fields: [payeeId], references: [id])
+  
+  // Platform fee (percentage of transaction)
+  platformFee           Float           @default(0)
+  platformFeePercent    Float           @default(10) // 10% default commission
+  
+  // Timestamps
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  completedAt           DateTime?
+  
+  @@index([taskId])
+  @@index([payerId])
+  @@index([payeeId])
+  @@index([status])
+  @@index([method])
+  @@map("transactions")
+}
+
+// ============================================================================
+// NOTIFICATION MODEL
+// ============================================================================
+
+model Notification {
+  id          String           @id @default(uuid())
+  type        NotificationType
+  title       String
+  body        String
+  data        Json?            // Additional payload
+  isRead      Boolean          @default(false)
+  
+  userId      String
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime         @default(now())
+  
+  @@index([userId, isRead])
+  @@index([createdAt(sort: Desc)])
+  @@map("notifications")
+}
+
+// ============================================================================
+// DEVICE TOKEN (Push Notifications)
+// ============================================================================
+
+model DeviceToken {
+  id          String   @id @default(uuid())
+  token       String   @unique
+  platform    String   // "android", "ios", "web"
+  
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([userId])
+  @@map("device_tokens")
+}
+
+// ============================================================================
+// CATEGORY MODEL (Dynamic categories)
+// ============================================================================
+
+model Category {
+  id          String   @id @default(uuid())
+  key         String   @unique  // e.g., "plumbing", "electrical"
+  icon        String            // Emoji or icon reference
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  
+  // Multilingual names stored as JSON
+  nameEn      String
+  nameRu      String
+  nameTj      String
+  
+  createdAt   DateTime @default(now())
+  
+  @@index([isActive, sortOrder])
+  @@map("categories")
+}
+
+// ============================================================================
+// REPORT MODEL (Content moderation)
+// ============================================================================
+
+model Report {
+  id          String   @id @default(uuid())
+  reason      String
+  description String?
+  
+  reporterId  String
+  targetType  String   // "user", "task", "review"
+  targetId    String
+  
+  isResolved  Boolean  @default(false)
+  
+  createdAt   DateTime @default(now())
+  
+  @@index([targetType, targetId])
+  @@index([isResolved])
+  @@map("reports")
+}
